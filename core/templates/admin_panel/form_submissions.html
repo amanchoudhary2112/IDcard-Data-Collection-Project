@@ -31,9 +31,7 @@
                     <td class="p-4 text-gray-700">
                         {% with value=submission.data|get_item:field.name %}
                             {% if value and '/media/' in value %}
-                                <a href="{{ value }}" target="_blank" class="text-indigo-600 hover:underline font-medium">
-                                    View File <i class="fas fa-external-link-alt fa-xs"></i>
-                                </a>
+                                <a href="{{ value }}" target="_blank" class="text-indigo-600 hover:underline font-medium">View File <i class="fas fa-external-link-alt fa-xs"></i></a>
                             {% elif value|is_list %}
                                 {{ value|join:", " }}
                             {% else %}
@@ -41,12 +39,19 @@
                             {% endif %}
                         {% endwith %}
                     </td>
+                    {% endfor %}
+                    <td class="p-4">{% if submission.processed_photo %}<a href="{{ submission.processed_photo.url }}" target="_blank"><img src="{{ submission.processed_photo.url }}" alt="Processed" class="w-14 h-14 object-cover rounded-lg shadow-sm border"></a>{% else %}<span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Processing...</span>{% endif %}</td>
+                    <td class="p-4 text-gray-600">{{ submission.submitted_at|date:"M d, Y H:i" }}</td>
+                    <td class="p-4 text-center">
+                        <button onclick="showDeleteModal('{% url 'delete_submission' submission.id %}', 'submission')" class="text-gray-400 hover:text-red-600" title="Delete"><i class="fas fa-trash"></i></button>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr><td colspan="{{ form.form_fields|length|add:3 }}" class="p-8 text-center text-gray-500"><i class="fas fa-box-open fa-3x text-gray-300 mb-2"></i><p>No submissions found for this form yet.</p></td></tr>
-                {% endfor %}
+                {% endfor %} <!-- This is the line that was likely missing -->
             </tbody>
         </table>
     </div>
 </div>
 {% endblock %}
+
