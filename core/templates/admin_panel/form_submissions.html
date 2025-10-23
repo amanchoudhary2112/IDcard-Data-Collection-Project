@@ -1,0 +1,52 @@
+{% extends 'admin_panel/base.html' %}
+{% block title %}Submissions for {{ form.title }}{% endblock %}
+{% block content %}
+<header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+    <div>
+        <a href="{% url 'dashboard' %}" class="text-sm text-indigo-600 hover:underline font-medium mb-2 inline-block"><i class="fas fa-arrow-left mr-1"></i> Back to Dashboard</a>
+        <h2 class="text-3xl font-bold text-gray-800">{{ form.title }}</h2>
+    </div>
+    <div class="flex items-center space-x-3 mt-3 sm:mt-0">
+        <a href="{% url 'export_csv' form.id %}" class="bg-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-teal-700 transition shadow-sm"><i class="fas fa-file-csv mr-2"></i>Download CSV</a>
+        <a href="{% url 'export_zip' form.id %}" class="bg-sky-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-sky-700 transition shadow-sm"><i class="fas fa-file-archive mr-2"></i>Download Photos</a>
+    </div>
+</header>
+<div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+    <form method="get" class="mb-6 relative">
+        <i class="fa fa-search text-gray-400 absolute top-3.5 left-4"></i>
+        <input type="text" name="q" placeholder="Search by name, roll no, etc..." value="{{ query }}" class="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+    </form>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead>
+                <tr class="bg-gray-50 border-b">
+                    {% for field in form.form_fields %}<th class="p-4 font-semibold text-gray-600">{{ field.name }}</th>{% endfor %}
+                    <th class="p-4 font-semibold text-gray-600">Processed Photo</th><th class="p-4 font-semibold text-gray-600">Submitted On</th><th class="p-4 font-semibold text-gray-600 text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for submission in submissions %}
+                <tr class="border-b hover:bg-gray-50">
+                    {% for field in form.form_fields %}
+                    <td class="p-4 text-gray-700">
+                        {% with value=submission.data|get_item:field.name %}
+                            {% if value and '/media/' in value %}
+                                <a href="{{ value }}" target="_blank" class="text-indigo-600 hover:underline font-medium">
+                                    View File <i class="fas fa-external-link-alt fa-xs"></i>
+                                </a>
+                            {% elif value|is_list %}
+                                {{ value|join:", " }}
+                            {% else %}
+                                {{ value|default:"-" }}
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="{{ form.form_fields|length|add:3 }}" class="p-8 text-center text-gray-500"><i class="fas fa-box-open fa-3x text-gray-300 mb-2"></i><p>No submissions found for this form yet.</p></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

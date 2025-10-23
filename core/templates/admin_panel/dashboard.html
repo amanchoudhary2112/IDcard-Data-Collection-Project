@@ -1,0 +1,67 @@
+{% extends 'admin_panel/base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<header class="mb-8">
+    <h2 class="text-3xl font-bold text-gray-800">Dashboard</h2>
+    <p class="text-gray-500 mt-1">Welcome back! Here's an overview of your data collection forms.</p>
+</header>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 flex items-center gap-5">
+        <div class="bg-indigo-100 text-indigo-600 p-4 rounded-full"><i class="fa-solid fa-file-alt fa-2x"></i></div>
+        <div>
+            <h3 class="text-lg font-semibold text-gray-500">Total Forms Created</h3>
+            <p class="text-4xl font-bold text-gray-800 mt-1">{{ total_forms }}</p>
+        </div>
+    </div>
+    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 flex items-center gap-5">
+        <div class="bg-teal-100 text-teal-600 p-4 rounded-full"><i class="fa-solid fa-users fa-2x"></i></div>
+        <div>
+            <h3 class="text-lg font-semibold text-gray-500">Total Submissions</h3>
+            <p class="text-4xl font-bold text-gray-800 mt-1">{{ total_submissions }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+        <h3 class="text-2xl font-bold text-gray-800">Your Forms</h3>
+        <a href="{% url 'create_form' %}" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition duration-300 shadow-sm hover:shadow-md mt-3 sm:mt-0"><i class="fas fa-plus mr-2"></i>Create New Form</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead>
+                <tr class="bg-gray-50 border-b"><th class="p-4 font-semibold text-gray-600">Form Title</th><th class="p-4 font-semibold text-gray-600">Submissions</th><th class="p-4 font-semibold text-gray-600">Created On</th><th class="p-4 font-semibold text-gray-600 text-center">Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for form in forms %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-4 font-medium text-gray-800">{{ form.title }}</td><td class="p-4 text-gray-600">{{ form.submissions.count }}</td><td class="p-4 text-gray-600">{{ form.created_at|date:"M d, Y" }}</td>
+                    <td class="p-4 text-center">
+                        <div class="flex justify-center items-center space-x-4 text-gray-500">
+                            <a href="{% url 'view_submissions' form.id %}" class="hover:text-indigo-600" title="View Submissions"><i class="fas fa-eye fa-lg"></i></a>
+                            <button onclick="copyToClipboard('{{ request.scheme }}://{{ request.get_host }}{% url 'student_form' form.slug %}')" class="hover:text-green-600" title="Copy Public Link"><i class="fas fa-copy fa-lg"></i></button>
+                            <a href="{% url 'edit_form' form.id %}" class="hover:text-amber-600" title="Edit"><i class="fas fa-edit fa-lg"></i></a>
+                            <a href="{% url 'duplicate_form' form.id %}" class="hover:text-sky-600" title="Duplicate"><i class="fas fa-clone fa-lg"></i></a>
+                            <button onclick="showDeleteModal('{% url 'delete_form' form.id %}', 'form')" class="hover:text-red-600" title="Delete"><i class="fas fa-trash fa-lg"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="p-8 text-center text-gray-500"><i class="fas fa-file-alt fa-3x text-gray-300 mb-2"></i><p>You haven't created any forms yet.</p></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// This page uses the toast function from base.html
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(
+        () => showToast('Public link copied to clipboard!'), 
+        () => showToast('Error: Could not copy link.')
+    );
+}
+</script>
+{% endblock %}

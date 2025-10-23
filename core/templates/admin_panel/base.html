@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Dashboard{% endblock %} Data Management Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        html { font-family: 'Inter', sans-serif; }
+        .sidebar-link { transition: background-color 0.2s, color 0.2s; }
+        .sidebar-link.active { background-color: #4f46e5; color: white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+        .modal-backdrop { transition: opacity 0.3s; }
+        .modal-content { transition: transform 0.3s, opacity 0.3s; }
+        #toast-notification { transition: opacity 0.5s, transform 0.5s; }
+    </style>
+</head>
+<body class="h-full">
+    <div class="flex h-screen bg-gray-100">
+        <aside class="w-64 bg-slate-800 text-slate-300 p-4 flex flex-col shadow-lg">
+            <div class="flex items-center gap-3 mb-10 px-2">
+                <i class="fa-solid fa-id-card-clip text-3xl text-indigo-400"></i>
+                <h1 class="text-l font-bold text-white">Data Management Portal</h1>
+            </div>
+            <nav class="flex-grow space-y-2">
+                <a href="{% url 'dashboard' %}" class="sidebar-link flex items-center p-3 rounded-lg hover:bg-slate-700 {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-tachometer-alt w-6"></i><span class="ml-3 font-medium">Dashboard</span>
+                </a>
+                <a href="{% url 'create_form' %}" class="sidebar-link flex items-center p-3 rounded-lg hover:bg-slate-700 {% if 'create_form' in request.resolver_match.url_name or 'edit_form' in request.resolver_match.url_name %}active{% endif %}">
+                    <i class="fas fa-plus-circle w-6"></i><span class="ml-3 font-medium">Create/Edit Form</span>
+                </a>
+            </nav>
+            <div class="mt-auto"><a href="{% url 'admin_logout' %}" class="sidebar-link flex items-center p-3 rounded-lg hover:bg-red-500 hover:text-white"><i class="fas fa-sign-out-alt w-6"></i><span class="ml-3 font-medium">Logout</span></a></div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto"><div class="p-8">{% block content %}{% endblock %}</div></main>
+    </div>
+
+    <div id="toast-notification" class="fixed top-5 right-5 bg-slate-800 text-white py-3 px-5 rounded-lg shadow-xl opacity-0 transform translate-y-10 pointer-events-none">
+        <i class="fa-solid fa-check-circle text-green-400 mr-2"></i><span id="toast-message"></span>
+    </div>
+
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none modal-backdrop">
+        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md transform scale-95 opacity-0 modal-content">
+            <div class="text-center">
+                <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                    <i class="fa-solid fa-exclamation-triangle text-red-600 text-2xl"></i>
+                </div>
+                <h3 class="mt-4 text-lg font-bold text-gray-900">Delete Item</h3>
+                <p id="modal-text" class="mt-2 text-sm text-gray-500">Are you sure? This action cannot be undone.</p>
+            </div>
+            <div class="mt-8 flex justify-center space-x-4">
+                <button id="modal-cancel-btn" class="px-6 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200">Cancel</button>
+                <form id="modal-delete-form" action="" method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    // --- Centralized JavaScript for Modals and Toasts ---
+    const modal = document.getElementById('delete-modal');
+    const modalText = document.getElementById('modal-text');
+    const modalDeleteForm = document.getElementById('modal-delete-form');
+    const modalCancelBtn = document.getElementById('modal-cancel-btn');
+
+    function showDeleteModal(formAction, itemType = 'item') {
+        modalDeleteForm.action = formAction;
+        let message = `Are you sure you want to delete this ${itemType}? This action cannot be undone.`;
+        if (itemType === 'form') {
+            message = `All student submissions for this form will also be permanently removed. Are you sure?`;
+        }
+        modalText.textContent = message;
+        
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        modal.querySelector('.modal-content').classList.remove('scale-95', 'opacity-0');
+    }
+
+    function hideDeleteModal() {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        modal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+    }
+
+    if(modal) {
+        modalCancelBtn.addEventListener('click', hideDeleteModal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) hideDeleteModal(); });
+    }
+    
+    function showToast(message) {
+        const toast = document.getElementById('toast-notification');
+        const toastMessage = document.getElementById('toast-message');
+        if (toast && toastMessage) {
+            toastMessage.textContent = message;
+            toast.style.opacity = '1'; toast.style.transform = 'translateY(0)';
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(2.5rem)'; }, 3000);
+        }
+    }
+    </script>
+</body>
+</html>

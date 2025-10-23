@@ -1,0 +1,198 @@
+{% extends 'admin_panel/base.html' %}
+{% block title %}{% if form %}Edit Form{% else %}Create Form{% endif %}{% endblock %}
+{% block content %}
+<header class="mb-8">
+    <h2 class="text-3xl font-bold text-gray-800">{% if form %}Edit Form{% else %}Create New Form{% endif %}</h2>
+    <p class="text-gray-500 mt-1">Configure the details and data fields for your form.</p>
+</header>
+
+{{ form.form_fields|json_script:"existing-fields-data" }}
+
+<form action="" method="post" enctype="multipart/form-data" class="space-y-8">
+    {% csrf_token %}
+    <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
+        <h3 class="text-xl font-bold text-gray-800 mb-1">1. Form Details</h3>
+        <p class="text-gray-500 mb-6">Give your form a clear and descriptive title.</p>
+        <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Form Title</label>
+        <input type="text" id="title" name="title" value="{{ form.title|default:'' }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., Greenwood School - Grade 10" required>
+    </div>
+
+    <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
+        <h3 class="text-xl font-bold text-gray-800 mb-1">2. Client Logo (Optional)</h3>
+        <p class="text-gray-500 mb-6">Upload a client logo (e.g., a school's logo) to display at the top of the form.</p>
+        <label for="client_logo" class="block text-sm font-medium text-gray-700 mb-1">Logo Image</label>
+        <input type="file" id="client_logo" name="client_logo" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+        {% if form.client_logo %}
+            <p class="text-xs mt-2 text-gray-500">
+                Current: <a href="{{ form.client_logo.url }}" target="_blank" class="text-indigo-500">{{ form.client_logo.name }}</a>
+                <img src="{{ form.client_logo.url }}" alt="Logo Preview" class="h-16 w-auto mt-2 border p-1 rounded-md">
+            </p>
+        {% endif %}
+    </div>
+
+    <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
+        <h3 class="text-xl font-bold text-gray-800 mb-1">3. Student Data Fields</h3>
+        <p class="text-gray-500 mb-6">Add and manage the fields students will fill out.</p>
+        <div id="fields-container" class="space-y-3"></div>
+        <div id="add-field-placeholder"></div>
+        <button type="button" id="add-field-btn" class="mt-4 bg-indigo-100 text-indigo-700 font-semibold px-4 py-2 rounded-lg hover:bg-indigo-200 transition-all duration-200"><i class="fas fa-plus mr-2"></i>Add Field</button>
+    </div>
+    
+    <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200">
+        <h3 class="text-xl font-bold text-gray-800 mb-1">4. Photo Background Settings</h3>
+        <p class="text-gray-500 mb-6">Choose the background for the auto-processed student photos.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <input type="radio" id="bg-type-color" name="background_type" value="color" class="hidden peer" {% if not form or form.background_type == 'color' %}checked{% endif %}>
+                <label for="bg-type-color" class="block p-4 border-2 rounded-lg cursor-pointer peer-checked:border-indigo-600 peer-checked:shadow-md h-full"><h4 class="font-semibold">Solid Color</h4><p class="text-sm text-gray-500">Apply a solid color background.</p></label>
+                <div id="color-picker-container" class="mt-4"><input type="color" id="background_color" name="background_color" value="{{ form.background_color|default:'#FFFFFF' }}" class="w-full h-12 border-0 rounded-md cursor-pointer"></div>
+            </div>
+            <div>
+                <input type="radio" id="bg-type-image" name="background_type" value="image" class="hidden peer" {% if form.background_type == 'image' %}checked{% endif %}>
+                <label for="bg-type-image" class="block p-4 border-2 rounded-lg cursor-pointer peer-checked:border-indigo-600 peer-checked:shadow-md h-full"><h4 class="font-semibold">Background Image</h4><p class="text-sm text-gray-500">Upload a custom background image.</p></label>
+                <div id="image-uploader-container" class="mt-4 hidden">
+                    <input type="file" id="background_image" name="background_image" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                    {% if form.background_image %}<p class="text-xs mt-2 text-gray-500">Current: <a href="{{ form.background_image.url }}" target="_blank" class="text-indigo-500">{{ form.background_image.name }}</a></p>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex items-center space-x-4 pt-4 border-t mt-8">
+        <button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 shadow-sm hover:shadow-md transition-all">Save Form</button>
+        <a href="{% url 'dashboard' %}" class="text-gray-600 font-medium py-3">Cancel</a>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const existingFieldsData = JSON.parse(document.getElementById('existing-fields-data').textContent || '[]');
+    const fieldsContainer = document.getElementById('fields-container');
+    const addFieldBtn = document.getElementById('add-field-btn');
+    const addFieldPlaceholder = document.getElementById('add-field-placeholder');
+
+    // --- Background Toggler (no changes) ---
+    const bgTypeColor = document.getElementById('bg-type-color');
+    const bgTypeImage = document.getElementById('bg-type-image');
+    const colorPicker = document.getElementById('color-picker-container');
+    const imageUploader = document.getElementById('image-uploader-container');
+    function toggleBackgroundOptions() {
+        if (bgTypeColor.checked) { colorPicker.style.display = 'block'; imageUploader.style.display = 'none'; } 
+        else { colorPicker.style.display = 'none'; imageUploader.style.display = 'block'; }
+    }
+    bgTypeColor.addEventListener('change', toggleBackgroundOptions);
+    bgTypeImage.addEventListener('change', toggleBackgroundOptions);
+    toggleBackgroundOptions();
+
+    // --- NEW Field Builder Logic ---
+
+    // Creates the visible element for a saved field
+    function createFieldElement(field) {
+        const fieldDiv = document.createElement('div');
+        fieldDiv.className = 'flex items-center space-x-3 p-3 border rounded-lg bg-gray-50';
+        
+        // Store the field's data as a single JSON string
+        const fieldDataInput = document.createElement('input');
+        fieldDataInput.type = 'hidden';
+        fieldDataInput.name = 'fields_json[]';
+        fieldDataInput.value = JSON.stringify(field);
+
+        let optionsHTML = '';
+        if (field.options && field.options.length > 0) {
+            optionsHTML = `<div class="text-xs text-gray-500 mt-1">Options: ${field.options.join(', ')}</div>`;
+        }
+
+        fieldDiv.innerHTML = `
+            <i class="fa fa-grip-vertical text-gray-400 cursor-grab"></i>
+            <div class="flex-grow">
+                <span class="font-semibold text-gray-800">${field.name}</span>
+                <span class="ml-2 text-xs text-white bg-gray-400 px-2 py-0.5 rounded-full">${field.type}</span>
+                ${field.required ? '<span class="ml-2 text-xs text-red-600 font-bold">Required</span>' : ''}
+                ${optionsHTML}
+            </div>
+            <button type="button" class="remove-field-btn text-gray-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+        `;
+        fieldDiv.prepend(fieldDataInput); // Add the hidden input
+        fieldsContainer.appendChild(fieldDiv);
+        fieldDiv.querySelector('.remove-field-btn').addEventListener('click', () => fieldDiv.remove());
+    }
+
+    // Creates the pop-up form to add a new field
+    function addField() {
+        if (document.getElementById('add-field-form')) return; // Prevent multiple
+        
+        const addFieldFormHTML = `
+            <div id="add-field-form" class="p-4 border-2 border-indigo-200 rounded-lg mt-4 space-y-3 bg-indigo-50">
+                <input type="text" placeholder="Field Name (e.g., Class, Hobbies)" class="w-full p-2 border rounded-md" name="new_field_name" required>
+                <select class="w-full p-2 border rounded-md" name="new_field_type">
+                    <option value="text">Text</option>
+                    <option value="textarea">Text Area (for Address)</option>
+                    <option value="email">Email</option>
+                    <option value="number">Number</option>
+                    <option value="date">Date</option>
+                    <option value="file">Photo/File</option>
+                    <option value="select">Dropdown (Select)</option>
+                    <option value="radio">Radio Buttons</option>
+                    <option value="checkbox">Checkboxes</option>
+                </select>
+                <textarea name="new_field_options" class="w-full p-2 border rounded-md hidden" placeholder="Enter options, separated by a comma (e.g., Red, Blue, Green)"></textarea>
+                <div class="flex items-center"><input type="checkbox" id="new_field_required" name="new_field_required" class="mr-2 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500" checked><label for="new_field_required">Is this field required?</label></div>
+                <div class="flex space-x-2">
+                    <button type="button" class="save-new-field-btn bg-indigo-600 text-white px-4 py-1 rounded-md text-sm font-semibold">Add Field</button>
+                    <button type="button" class="cancel-new-field-btn bg-gray-200 px-4 py-1 rounded-md text-sm font-semibold">Cancel</button>
+                </div>
+            </div>`;
+        addFieldPlaceholder.innerHTML = addFieldFormHTML;
+
+        const formElement = document.getElementById('add-field-form');
+        const nameInput = formElement.querySelector('[name="new_field_name"]');
+        const typeSelect = formElement.querySelector('[name="new_field_type"]');
+        const optionsInput = formElement.querySelector('[name="new_field_options"]');
+        
+        nameInput.focus();
+
+        // Show/hide the "Options" input
+        typeSelect.addEventListener('change', () => {
+            const type = typeSelect.value;
+            if (['select', 'radio', 'checkbox'].includes(type)) {
+                optionsInput.classList.remove('hidden');
+            } else {
+                optionsInput.classList.add('hidden');
+            }
+        });
+
+        // Save button logic
+        formElement.querySelector('.save-new-field-btn').addEventListener('click', () => {
+            const field = {
+                name: nameInput.value,
+                type: typeSelect.value,
+                required: formElement.querySelector('[name="new_field_required"]').checked,
+                options: []
+            };
+
+            if (!field.name) { alert('Field Name is required.'); return; }
+
+            if (['select', 'radio', 'checkbox'].includes(field.type)) {
+                field.options = optionsInput.value.split(',')
+                                  .map(opt => opt.trim()) // Remove whitespace
+                                  .filter(opt => opt); // Remove empty strings
+                if (field.options.length === 0) {
+                    alert('Please provide comma-separated options for this field type.'); return;
+                }
+            }
+            
+            createFieldElement(field);
+            formElement.remove();
+        });
+
+        formElement.querySelector('.cancel-new-field-btn').addEventListener('click', () => formElement.remove());
+    }
+
+    // --- Load existing fields on page load ---
+    addFieldBtn.addEventListener('click', addField);
+    if (existingFieldsData) {
+        existingFieldsData.forEach(createFieldElement);
+    }
+});
+</script>
+{% endblock %}
