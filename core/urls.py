@@ -24,6 +24,6 @@ urlpatterns = [
     path('admin-panel/submission/delete/<int:submission_id>/', views.delete_submission_view, name='delete_submission'),
     
     # Data Export
-    path('admin-panel/form/<int:form_id>/export/csv/', views.export_csv_view, name='export_csv'),
+    path('admin-panel/form/<int:form_id>/export/excel/', views.export_excel_view, name='export_excel'),
     path('admin-panel/form/<int:form_id>/export/zip/', views.export_photos_zip_view, name='export_zip'),
 ]

@@ -1,5 +1,6 @@
 {% extends 'admin_panel/base.html' %}
 {% block title %}Submissions for {{ form.title }}{% endblock %}
+
 {% block content %}
 <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
     <div>
@@ -7,26 +8,128 @@
         <h2 class="text-3xl font-bold text-gray-800">{{ form.title }}</h2>
     </div>
     <div class="flex items-center space-x-3 mt-3 sm:mt-0">
-        <a href="{% url 'export_csv' form.id %}" class="bg-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-teal-700 transition shadow-sm"><i class="fas fa-file-csv mr-2"></i>Download CSV</a>
-        <a href="{% url 'export_zip' form.id %}" class="bg-sky-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-sky-700 transition shadow-sm"><i class="fas fa-file-archive mr-2"></i>Download Photos</a>
+        {# Generate export links preserving current filters/sort #}
+        {% url 'export_excel' form.id as excel_url %}
+        {% url 'export_zip' form.id as zip_url %}
+        <a href="{{ excel_url }}?{{ request.GET.urlencode }}" class="bg-teal-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-teal-700 transition shadow-sm"><i class="fas fa-file-excel mr-2"></i>Download Excel</a>
+        <a href="{{ zip_url }}?{{ request.GET.urlencode }}" class="bg-sky-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-sky-700 transition shadow-sm"><i class="fas fa-file-archive mr-2"></i>Download Photos</a>
     </div>
 </header>
-<div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
-    <form method="get" class="mb-6 relative">
-        <i class="fa fa-search text-gray-400 absolute top-3.5 left-4"></i>
-        <input type="text" name="q" placeholder="Search by name, roll no, etc..." value="{{ query }}" class="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+
+<div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        {# Search Input #}
+        <div class="relative">
+            <label for="search-input" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <i class="fa fa-search text-gray-400 absolute bottom-3 left-3 z-10"></i>
+            <input type="text" id="search-input" name="q" placeholder="Name, ID, etc..." value="{{ query }}" class="w-full p-2 pl-9 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        {# Class Filter Dropdown (if applicable) #}
+        {% if distinct_classes %}
+        <div>
+            <label for="class-filter" class="block text-sm font-medium text-gray-700 mb-1">Filter by {{ class_field_name|default:"Class" }}</label>
+            <select name="class_filter" id="class-filter" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <option value="">All Classes</option>
+                {% for class_name in distinct_classes %}
+                <option value="{{ class_name }}" {% if class_filter == class_name %}selected{% endif %}>{{ class_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        {# Submit Button #}
+        <div class="md:col-start-3 flex justify-end">
+            <button type="submit" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition">Filter / Search</button>
+             {% if query or class_filter %} {# Show clear button only if filters active #}
+             <a href="{% url 'view_submissions' form.id %}" class="ml-2 px-5 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition">Clear</a>
+             {% endif %}
+        </div>
+        {# Hidden inputs to preserve sorting when filtering #}
+        <input type="hidden" name="sort_by" value="{{ sort_by }}">
+        <input type="hidden" name="order" value="{{ order }}">
     </form>
+</div>
+
+<div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
     <div class="overflow-x-auto">
         <table class="w-full text-left">
             <thead>
                 <tr class="bg-gray-50 border-b">
-                    {% for field in form.form_fields %}<th class="p-4 font-semibold text-gray-600">{{ field.name }}</th>{% endfor %}
-                    <th class="p-4 font-semibold text-gray-600">Processed Photo</th><th class="p-4 font-semibold text-gray-600">Submitted On</th><th class="p-4 font-semibold text-gray-600 text-center">Actions</th>
+                    {# --- Sortable Unique ID Header --- #}
+                    <th class="p-4 font-semibold text-gray-600">
+                        {% with current_sort='unique_id' %}
+                            {% if sort_by == current_sort %}
+                                {% if order == 'asc' %}
+                                    {% with next_order='desc' %}
+                                    <a href="?sort_by={{ current_sort }}&order={{ next_order }}{% for key, value in filter_params.items %}&{{ key }}={{ value }}{% endfor %}" class="hover:text-indigo-600">Unique ID <i class="fas fa-arrow-up ml-1"></i></a>
+                                    {% endwith %}
+                                {% else %} {# order == 'desc' #}
+                                    {% with next_order='asc' %}
+                                    <a href="?sort_by={{ current_sort }}&order={{ next_order }}{% for key, value in filter_params.items %}&{{ key }}={{ value }}{% endfor %}" class="hover:text-indigo-600">Unique ID <i class="fas fa-arrow-down ml-1"></i></a>
+                                    {% endwith %}
+                                {% endif %}
+                            {% else %} {# Not currently sorted by this column #}
+                                {% with next_order='asc' %}
+                                <a href="?sort_by={{ current_sort }}&order={{ next_order }}{% for key, value in filter_params.items %}&{{ key }}={{ value }}{% endfor %}" class="hover:text-indigo-600">Unique ID</a>
+                                {% endwith %}
+                            {% endif %}
+                        {% endwith %}
+                    </th>
+                    {# --- Dynamic Field Headers (Allow sorting on Full Name/Roll No) --- #}
+                    {% for field in form.form_fields %}
+                    <th class="p-4 font-semibold text-gray-600">
+                        {% if field.name == 'Full Name' or field.name == 'Roll Number' %}
+                             {% with current_sort=field.name|urlencode %}
+                                {% if sort_by == field.name %}
+                                    {% if order == 'asc' %}
+                                        {% with next_order='desc' %}
+                                        <a href="?sort_by={{ current_sort }}&order={{ next_order }}{% for key, value in filter_params.items %}&{{ key }}={{ value }}{% endfor %}" class="hover:text-indigo-600">{{ field.name }} <i class="fas fa-arrow-up ml-1"></i></a>
+                                        {% endwith %}
+                                    {% else %} {# order == 'desc' #}
+                                        {% with next_order='asc' %}
+                                        <a href="?sort_by={{ current_sort }}&order={{ next_order }}{% for key, value in filter_params.items %}&{{ key }}={{ value }}{% endfor %}" class="hover:text-indigo-600">{{ field.name }} <i class="fas fa-arrow-down ml-1"></i></a>
+                                        {% endwith %}
+                                    {% endif %}
+                                {% else %} {# Not currently sorted by this column #}
+                                    {% with next_order='asc' %}
+                                    <a href="?sort_by={{ current_sort }}&order={{ next_order }}{% for key, value in filter_params.items %}&{{ key }}={{ value }}{% endfor %}" class="hover:text-indigo-600">{{ field.name }}</a>
+                                    {% endwith %}
+                                {% endif %}
+                             {% endwith %}
+                        {% else %}
+                            {{ field.name }}
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+                    <th class="p-4 font-semibold text-gray-600">Submitted Photo</th>
+                     {# --- Sortable Submitted At Header --- #}
+                    <th class="p-4 font-semibold text-gray-600">
+                        {% with current_sort='submitted_at' %}
+                            {% if sort_by == current_sort %}
+                                {% if order == 'asc' %}
+                                    {% with next_order='desc' %}
+                                    <a href="?sort_by={{ current_sort }}&order={{ next_order }}{% for key, value in filter_params.items %}&{{ key }}={{ value }}{% endfor %}" class="hover:text-indigo-600">Submitted On <i class="fas fa-arrow-up ml-1"></i></a>
+                                    {% endwith %}
+                                {% else %} {# order == 'desc' #}
+                                    {% with next_order='asc' %}
+                                    <a href="?sort_by={{ current_sort }}&order={{ next_order }}{% for key, value in filter_params.items %}&{{ key }}={{ value }}{% endfor %}" class="hover:text-indigo-600">Submitted On <i class="fas fa-arrow-down ml-1"></i></a>
+                                    {% endwith %}
+                                {% endif %}
+                            {% else %} {# Not currently sorted by this column #}
+                                {% with next_order='asc' %}
+                                <a href="?sort_by={{ current_sort }}&order={{ next_order }}{% for key, value in filter_params.items %}&{{ key }}={{ value }}{% endfor %}" class="hover:text-indigo-600">Submitted On</a>
+                                {% endwith %}
+                            {% endif %}
+                        {% endwith %}
+                    </th>
+                    <th class="p-4 font-semibold text-gray-600 text-center">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for submission in submissions %}
                 <tr class="border-b hover:bg-gray-50">
+                    <td class="p-4 text-gray-700 font-medium">{{ submission.unique_id|default:"N/A" }}</td> {# Display Unique ID #}
                     {% for field in form.form_fields %}
                     <td class="p-4 text-gray-700">
                         {% with value=submission.data|get_item:field.name %}
@@ -38,20 +141,25 @@
                                 {{ value|default:"-" }}
                             {% endif %}
                         {% endwith %}
+
+                        
                     </td>
                     {% endfor %}
-                    <td class="p-4">{% if submission.processed_photo %}<a href="{{ submission.processed_photo.url }}" target="_blank"><img src="{{ submission.processed_photo.url }}" alt="Processed" class="w-14 h-14 object-cover rounded-lg shadow-sm border"></a>{% else %}<span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Processing...</span>{% endif %}</td>
+                    <td class="p-4"> {# Display Original Cropped Photo #}
+                        {% if submission.original_photo %}<a href="{{ submission.original_photo.url }}" target="_blank"><img src="{{ submission.original_photo.url }}" alt="Cropped" class="w-14 h-14 object-cover rounded-lg shadow-sm border"></a>{% else %}<span class="text-xs text-gray-500">No photo</span>{% endif %}
+                    </td>
                     <td class="p-4 text-gray-600">{{ submission.submitted_at|date:"M d, Y H:i" }}</td>
                     <td class="p-4 text-center">
                         <button onclick="showDeleteModal('{% url 'delete_submission' submission.id %}', 'submission')" class="text-gray-400 hover:text-red-600" title="Delete"><i class="fas fa-trash"></i></button>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="{{ form.form_fields|length|add:3 }}" class="p-8 text-center text-gray-500"><i class="fas fa-box-open fa-3x text-gray-300 mb-2"></i><p>No submissions found for this form yet.</p></td></tr>
-                {% endfor %} <!-- This is the line that was likely missing -->
+                <tr><td colspan="{{ form.form_fields|length|add:4 }}" class="p-8 text-center text-gray-500"><i class="fas fa-box-open fa-3x text-gray-300 mb-2"></i><p>No submissions match the current filters.</p></td></tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+{# Delete modal script is in base.html #}
 {% endblock %}
 
