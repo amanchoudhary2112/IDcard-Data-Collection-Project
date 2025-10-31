@@ -12,11 +12,13 @@
     <style>
         @import url('https://rsms.me/inter/inter.css');
         body { font-family: 'Inter', sans-serif; }
-        #cropper-modal { display: none; }
+        #cropper-modal, #camera-modal { display: none; }
         .cropper-container { max-width: 100%; }
-        #preview { width: 150px; height: 150px; overflow: hidden; border-radius: 50%; border: 3px solid #e5e7eb; }
+        /* Make preview a class, not an ID */
+        .preview-circle { width: 150px; height: 150px; overflow: hidden; border-radius: 50%; border: 3px solid #e5e7eb; } 
         .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #4f46e5; animation: spin 1s ease infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #camera-feed { width: 100%; height: auto; max-height: 60vh; border-radius: 8px; background-color: #000; }
     </style>
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
@@ -28,18 +30,38 @@
         {% endif %}
         
         <h1 class="text-3xl font-bold text-center mb-2">{{ form.title }}</h1>
-        <p class="text-center text-gray-600 mb-8">Please fill out your details and upload your photo.</p>
+        <p class="text-center text-gray-600 mb-8">Please fill out your details and upload your photo(s).</p>
 
         <form id="student-form" enctype="multipart/form-data">
             <div class="space-y-5">
                 
                 {% for field in form.form_fields %}
-                <div>
+                <div class="border-t pt-5">
                     <label class="block text-gray-700 mb-2 font-medium">
                         {{ field.name }} {% if field.required %}<span class="text-red-500">*</span>{% endif %}
                     </label>
                     
-                    {% if field.type == 'textarea' %}
+                    {% if field.type == 'photo_croppable' %}
+                    <div class="photo-upload-block">
+                        <p class="text-sm text-gray-500 mb-4">Please upload a clear, passport-style photo. You can crop it or use your camera.</p>
+                        <div class="flex items-center space-x-6">
+                            <div class="preview-circle bg-gray-100 flex items-center justify-center text-gray-400">
+                                <span>Preview</span>
+                            </div>
+                            <div class="flex flex-col space-y-3">
+                                <input type="file" name="{{ field.name }}" class="photo-file-input hidden" accept="image/*" {% if field.required %}required{% endif %}>
+                                
+                                <label class="photo-input-label cursor-pointer bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition text-center">
+                                    <i class="fas fa-upload mr-2"></i>Choose Photo
+                                </label>
+                                <button type="button" class="open-camera-btn cursor-pointer bg-gray-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-gray-700 transition">
+                                    <i class="fas fa-camera mr-2"></i>Open Camera
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% elif field.type == 'textarea' %}
                         <textarea name="{{ field.name }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" rows="4" {% if field.required %}required{% endif %}></textarea>
                     
                     {% elif field.type == 'select' %}
@@ -70,30 +92,15 @@
                         {% endfor %}
                         </div>
 
-                    {% elif field.type == 'file' %}
-                         <input type="{{ field.type }}" name="{{ field.name }}" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" {% if field.required %}required{% endif %}>
+                    {% elif field.type == 'file_document' %}
+                         <input type="file" name="{{ field.name }}" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" {% if field.required %}required{% endif %}>
 
-                    {% else %}
+                    {% else %} {# text, email, number, date #}
                         <input type="{{ field.type }}" name="{{ field.name }}" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" {% if field.required %}required{% endif %}>
                     
                     {% endif %}
                 </div>
                 {% endfor %}
-                
-            </div>
-
-            <div class="mt-6 border-t pt-6">
-                <label class="block text-gray-700 mb-2 font-medium">Upload Your Profile Photo <span class="text-red-500">*</span></label>
-                <p class="text-sm text-gray-500 mb-4">Please upload a clear, passport-style photo. You will be able to crop it in the next step.</p>
-                <div class="flex items-center space-x-6">
-                    <div id="preview" class="bg-gray-100 flex items-center justify-center text-gray-400">
-                        <span>Preview</span>
-                    </div>
-                    <input type="file" id="photo-input" accept="image/*" class="hidden" required>
-                    <label for="photo-input" class="cursor-pointer bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition">
-                        <i class="fas fa-upload mr-2"></i>Choose Photo
-                    </label>
-                </div>
             </div>
 
             <div class="mt-8">
@@ -108,13 +115,8 @@
         </form>
     </div>
 
-    <div id="cropper-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-6 rounded-lg max-w-lg w-full shadow-xl">
-            <h3 class="text-xl font-bold mb-4">Crop Your Photo</h3>
-            <div class="max-h-96 overflow-hidden"><img id="image-to-crop" src="" alt="Image to crop"></div>
-            <button id="crop-btn" class="mt-4 w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">Crop & Save</button>
-        </div>
-    </div>
+    <div id="cropper-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"> <div class="bg-white p-6 rounded-lg max-w-lg w-full shadow-xl"> <h3 class="text-xl font-bold mb-4">Crop Your Photo</h3> <div class="max-h-96 overflow-hidden"><img id="image-to-crop" src="" alt="Image to crop"></div> <button id="crop-btn" class="mt-4 w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">Crop & Save</button> </div> </div>
+    <div id="camera-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-40"> <div class="bg-white p-6 rounded-lg max-w-lg w-full shadow-xl"> <h3 class="text-xl font-bold mb-4">Capture Photo</h3> <video id="camera-feed" playsinline></video> <button id="capture-btn" class="mt-4 w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition"><i class="fas fa-camera"></i> Capture</button> <button id="cancel-camera-btn" class="mt-2 w-full bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300 transition">Cancel</button> </div> </div>
     
     <script src="{% static 'js/main.js' %}"></script>
 </body>

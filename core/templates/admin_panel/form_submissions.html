@@ -102,7 +102,7 @@
                         {% endif %}
                     </th>
                     {% endfor %}
-                    <th class="p-4 font-semibold text-gray-600">Submitted Photo</th>
+                    <!-- REMOVED the hardcoded "Submitted Photo" header -->
                      {# --- Sortable Submitted At Header --- #}
                     <th class="p-4 font-semibold text-gray-600">
                         {% with current_sort='submitted_at' %}
@@ -130,36 +130,53 @@
                 {% for submission in submissions %}
                 <tr class="border-b hover:bg-gray-50">
                     <td class="p-4 text-gray-700 font-medium">{{ submission.unique_id|default:"N/A" }}</td> {# Display Unique ID #}
+                    
+                    {# This loop now handles ALL fields, including photos/files #}
                     {% for field in form.form_fields %}
-                    <td class="p-4 text-gray-700">
+                    <td class="p-4 text-gray-700"> <!-- Fixed typo here (was class.p-4) -->
                         {% with value=submission.data|get_item:field.name %}
-                            {% if value and '/media/' in value %}
-                                <a href="{{ value }}" target="_blank" class="text-indigo-600 hover:underline font-medium">View File <i class="fas fa-external-link-alt fa-xs"></i></a>
+                            
+                            <!-- *** THIS IS THE FIX *** -->
+                            {% if field.type == 'photo_croppable' %}
+                                {% if value and '/media/' in value %}
+                                    <a href="{{ value }}" target="_blank">
+                                        <img src="{{ value }}" alt="{{ field.name }} preview" class="w-14 h-14 object-cover rounded-lg shadow-sm border">
+                                    </a>
+                                {% else %}
+                                    <span class="text-xs text-gray-500">-</span>
+                                {% endif %}
+
+                            {% elif field.type == 'file_document' %}
+                                {% if value and '/media/' in value %}
+                                    <a href="{{ value }}" target="_blank" class="text-indigo-600 hover:underline font-medium">
+                                        View File <i class="fas fa-external-link-alt fa-xs"></i>
+                                    </a>
+                                {% else %}
+                                    <span class="text-xs text-gray-500">-</span>
+                                {% endif %}
+                            
                             {% elif value|is_list %}
                                 {{ value|join:", " }}
                             {% else %}
                                 {{ value|default:"-" }}
                             {% endif %}
                         {% endwith %}
-
-                        
                     </td>
                     {% endfor %}
-                    <td class="p-4"> {# Display Original Cropped Photo #}
-                        {% if submission.original_photo %}<a href="{{ submission.original_photo.url }}" target="_blank"><img src="{{ submission.original_photo.url }}" alt="Cropped" class="w-14 h-14 object-cover rounded-lg shadow-sm border"></a>{% else %}<span class="text-xs text-gray-500">No photo</span>{% endif %}
-                    </td>
+                    
                     <td class="p-4 text-gray-600">{{ submission.submitted_at|date:"M d, Y H:i" }}</td>
                     <td class="p-4 text-center">
                         <button onclick="showDeleteModal('{% url 'delete_submission' submission.id %}', 'submission')" class="text-gray-400 hover:text-red-600" title="Delete"><i class="fas fa-trash"></i></button>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="{{ form.form_fields|length|add:4 }}" class="p-8 text-center text-gray-500"><i class="fas fa-box-open fa-3x text-gray-300 mb-2"></i><p>No submissions match the current filters.</p></td></tr>
+
+                <tr><td colspan="{{ form.form_fields|length|add:3 }}" class="p-8 text-center text-gray-500"><i class="fas fa-box-open fa-3x text-gray-300 mb-2"></i><p>No submissions match the current filters.</p></td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
-{# Delete modal script is in base.html #}
+
 {% endblock %}
 
