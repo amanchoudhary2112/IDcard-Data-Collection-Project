@@ -1,12 +1,17 @@
+# .gitignore
+
+# Environment
 venv/
+.env
+
+# Database
+db.sqlite3
+*.sqlite3
+
+# Cache
 __pycache__/
 *.pyc
-.DS_Store
-venv/
-__pycache__/
-*.pyc
-.DS_Store
-venv/
-__pycache__/
-*.pyc
-.DS_Store
+
+# Static & Media (these will be handled by the server)
+staticfiles/
+media/
